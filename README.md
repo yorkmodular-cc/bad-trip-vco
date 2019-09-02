@@ -2,7 +2,10 @@
 
 These are the files that you may (or may not) need for the Bad Trip VCO kit. It is assumed that you have enough knowledge to source appropriate components and read a schematic. 
 
-Knowledge of how to use the Arduino IDE (or equivalent) to flash an ATTiny45/85 MCU is also desireable but not essential. In order to flash the firmware, your Arduino setup will need to include the ATTiny core by David Mellis - you can download that at https://github.com/damellis/attiny or install it via the Board Manager on newer versions of the Arduino IDE.
+Knowledge of how to use the Arduino IDE (or equivalent) to flash an ATTiny45/85 MCU is also desireable but not essential. In order to flash the firmware, your Arduino setup will need to include the ATTiny core by 
+David Mellis - you can download that at https://github.com/damellis/attiny or install it via the Board Manager on newer versions of the Arduino IDE. As is, the default firmware will fit onto an ATTiny45 with
+space to spare - when flashing the firmware you'll need to specify the appropriate MCU with a 16MHz internal clock. Whilst there's absolutely no reason why you can't use a different clock speed, the frequency
+lookup table values assume a clock speed of 16MHz
 
 The 'Bad Trip' is a square/saw VCO with a built in resonant vactrol filter - it gets it's name from the fact that you can coax some pretty squonky acid-style basslines out of it on the one hand, and utterly godawful nightmare noises on the other. 
 
