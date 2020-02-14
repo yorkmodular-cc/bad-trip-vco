@@ -1,0 +1,164 @@
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+//
+// Firmware for AVR-based wavetable VCOs.
+// Written by Simon Ward <simon@yorkmodular.co.uk>
+//
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <avr/pgmspace.h>
+
+// Wavetable definitions - values are defined in wavetables.h
+#define WAVETABLE_SAW         0
+#define WAVETABLE_SQUARE      1
+#define CV_INPUT              A2  // PB4 (pin 3)
+#define WAVE_INPUT            PB0  // PB0 (pin 5)
+#define TUNE_INPUT            A3 //
+#define WAVETABLE_LENGTH      256
+#define MAPTABLE_LENGTH       1024
+
+// 1V/octave lookup table - the values are phase increments. Base frequency is
+// approximately 30Hz.
+const uint16_t freqTable[MAPTABLE_LENGTH] PROGMEM = {
+    69,69,69,69,70,70,70,70,70,71,71,71,71,72,72,72,72,73,73,73,73,74,74,74,
+    74,75,75,75,75,76,76,76,76,77,77,77,77,78,78,78,79,79,79,79,80,80,80,80,
+    81,81,81,81,82,82,82,83,83,83,83,84,84,84,85,85,85,85,86,86,86,87,87,87,
+    88,88,88,88,89,89,89,90,90,90,91,91,91,91,92,92,92,93,93,93,94,94,94,95,
+    95,95,96,96,96,97,97,97,98,98,98,99,99,99,100,100,100,101,101,101,102,102,
+    102,103,103,103,104,104,104,105,105,105,106,106,106,107,107,108,108,108,
+    109,109,109,110,110,111,111,111,112,112,112,113,113,114,114,114,115,115,
+    115,116,116,117,117,117,118,118,119,119,119,120,120,121,121,122,122,122,
+    123,123,124,124,124,125,125,126,126,127,127,127,128,128,129,129,130,130,
+    130,131,131,132,132,133,133,134,134,134,135,135,136,136,137,137,138,138,
+    139,139,140,140,141,141,141,142,142,143,143,144,144,145,145,146,146,147,
+    147,148,148,149,149,150,150,151,151,152,152,153,153,154,155,155,156,156,
+    157,157,158,158,159,159,160,160,161,161,162,163,163,164,164,165,165,166,
+    166,167,168,168,169,169,170,170,171,172,172,173,173,174,175,175,176,176,
+    177,178,178,179,179,180,181,181,182,182,183,184,184,185,185,186,187,187,
+    188,189,189,190,191,191,192,193,193,194,194,195,196,196,197,198,198,199,
+    200,201,201,202,203,203,204,205,205,206,207,207,208,209,210,210,211,212,
+    212,213,214,215,215,216,217,217,218,219,220,220,221,222,223,223,224,225,
+    226,226,227,228,229,230,230,231,232,233,233,234,235,236,237,237,238,239,
+    240,241,242,242,243,244,245,246,246,247,248,249,250,251,252,252,253,254,
+    255,256,257,258,258,259,260,261,262,263,264,265,266,266,267,268,269,270,
+    271,272,273,274,275,276,277,277,278,279,280,281,282,283,284,285,286,287,
+    288,289,290,291,292,293,294,295,296,297,298,299,300,301,302,303,304,305,
+    306,307,308,309,310,311,312,313,314,316,317,318,319,320,321,322,323,324,
+    325,326,328,329,330,331,332,333,334,335,337,338,339,340,341,342,343,345,
+    346,347,348,349,350,352,353,354,355,356,358,359,360,361,363,364,365,366,
+    367,369,370,371,372,374,375,376,378,379,380,381,383,384,385,387,388,389,
+    391,392,393,395,396,397,399,400,401,403,404,405,407,408,410,411,412,414,
+    415,417,418,419,421,422,424,425,426,428,429,431,432,434,435,437,438,440,
+    441,443,444,446,447,449,450,452,453,455,456,458,459,461,463,464,466,467,
+    469,470,472,474,475,477,479,480,482,483,485,487,488,490,492,493,495,497,
+    498,500,502,503,505,507,509,510,512,514,515,517,519,521,523,524,526,528,
+    530,531,533,535,537,539,541,542,544,546,548,550,552,553,555,557,559,561,
+    563,565,567,569,571,573,574,576,578,580,582,584,586,588,590,592,594,596,
+    598,600,602,604,606,608,611,613,615,617,619,621,623,625,627,629,632,634,
+    636,638,640,642,645,647,649,651,653,656,658,660,662,664,667,669,671,674,
+    676,678,680,683,685,687,690,692,694,697,699,701,704,706,709,711,713,716,
+    718,721,723,726,728,730,733,735,738,740,743,745,748,751,753,756,758,761,
+    763,766,769,771,774,776,779,782,784,787,790,792,795,798,800,803,806,809,
+    811,814,817,820,822,825,828,831,834,836,839,842,845,848,851,854,856,859,
+    862,865,868,871,874,877,880,883,886,889,892,895,898,901,904,907,910,913,
+    916,920,923,926,929,932,935,938,942,945,948,951,954,958,961,964,967,971,
+    974,977,981,984,987,991,994,997,1001,1004,1008,1011,1014,1018,1021,1025,
+    1028,1032,1035,1039,1042,1046,1049,1053,1056,1060,1064,1067,1071,1074,
+    1078,1082,1085,1089,1093,1096,1100,1104,1108,1111,1115,1119,1123,1127,
+    1130,1134,1138,1142,1146,1150,1154,1158,1161,1165,1169,1173,1177,1181,
+    1185,1189,1193,1197,1201,1205,1210,1214,1218,1222,1226,1230,1234,1239,
+    1243,1247,1251,1255,1260,1264,1268,1273,1277,1281,1286,1290,1294,1299,
+    1303,1307,1312,1316,1321,1325,1330,1334,1339,1343,1348,1352,1357,1362,
+    1366,1371,1376,1380,1385,1390,1394,1399,1404,1409,1413,1418,1423,1428,
+    1433,1437,1442,1447,1452,1457,1462,1467,1472,1477,1482,1487,1492,1497,
+    1502,1507,1512,1517,1523,1528,1533,1538,1543,1549,1554,1559,1564,1570,
+    1575,1580,1586,1591,1596,1602,1607,1613,1618,1624,1629,1635,1640,1646,
+    1651,1657,1663,1668,1674,1680,1685,1691,1697,1703,1708,1714,1720,1726,
+    1732,1737,1743,1749,1755,1761,1767,1773,1779,1785,1791,1797,1803,1809,
+    1816,1822,1828,1834,1840,1847,1853,1859,1865,1872,1878,1884,1891,1897,
+    1904,1910,1917,1923,1930,1936,1943,1949,1956,1963,1969,1976,1983,1989,
+    1996,2003,2010,2016,2023,2030,2037,2044,2051,2058,2065,2072,2079,2086,
+    2093,2100,2107,2114,2121,2129,2136,2143,2150,2158,2165,2172,2180,2187
+};
+
+volatile uint16_t syncPhaseAcc, syncPhaseInc, baseFreq, syncOffset, finetune;
+volatile uint8_t current_wavetable = 0;
+
+uint16_t mapFreq(uint16_t input) {
+  return pgm_read_word_near(freqTable + input);
+}
+uint16_t acc, a1_level, buff_step;
+
+void audioOn() {
+  PLLCSR = 1 << PCKE | 1 << PLLE;
+  TIMSK = 0;
+  TCCR1 = 1 << PWM1A | 2 << COM1A0 | 1 << CS11;
+  OCR1A = 128;
+  pinMode(1, OUTPUT);
+  pinMode(CV_INPUT, INPUT);
+  pinMode(WAVE_INPUT, INPUT);
+  pinMode(TUNE_INPUT, INPUT);
+
+  TCCR0A = (1 << WGM00) | (1 << WGM01);
+  TCCR0B = 1 << WGM02 | 2 << CS00;
+  TIMSK = 1 << OCIE0A; // Compare match A
+  OCR0A = 29;
+  syncPhaseAcc = 0;
+}
+
+void setup() {
+  audioOn();
+}
+
+void loop() {
+  // Desired frequency - resolution is 5V / 1024 steps = 4.8mV
+  // The lookup table for mapFreq yields a response pretty close to 1V/oct
+  baseFreq = mapFreq(analogRead(CV_INPUT));
+  current_wavetable = (digitalRead(WAVE_INPUT) == HIGH) ? WAVETABLE_SAW : WAVETABLE_SQUARE ;
+  finetune = -64 + (analogRead(TUNE_INPUT) >> 3);
+  syncPhaseInc = baseFreq + finetune;
+}
+
+// The interrupt service routine - this is where it all happens.
+//
+// On the ATTiny85, there's a conflict relating to TIMER0_OVF_vect in
+// some cores so we use the comparator instead. The net result is the
+// same.
+//
+// - Increment the phase accumulator
+// - Convert the accumulator value to an 8-bit number corresponding to
+//   the step in the wavetable
+// - Read the appropriate wavetable value
+// - Write it to the PWM pinf
+
+ISR(TIMER0_COMPA_vect) {
+   uint8_t val, step, phased_step;
+
+   syncPhaseAcc += syncPhaseInc;
+
+   step = syncPhaseAcc >> 8;
+   switch (current_wavetable) {
+     case WAVETABLE_SAW:
+         val = step & 0xff;
+         break;
+     default:
+         val = ( step <= 128) ? 0xff : 0x00;
+         break;
+   }
+   OCR1A = val;
+}
