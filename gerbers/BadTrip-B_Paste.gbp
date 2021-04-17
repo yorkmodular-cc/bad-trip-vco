@@ -1,0 +1,23 @@
+G04 #@! TF.GenerationSoftware,KiCad,Pcbnew,5.1.6-c6e7f7d~86~ubuntu18.04.1*
+G04 #@! TF.CreationDate,2020-07-10T20:36:52+01:00*
+G04 #@! TF.ProjectId,acid-casualty-v2,61636964-2d63-4617-9375-616c74792d76,rev?*
+G04 #@! TF.SameCoordinates,Original*
+G04 #@! TF.FileFunction,Paste,Bot*
+G04 #@! TF.FilePolarity,Positive*
+%FSLAX46Y46*%
+G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
+G04 Created by KiCad (PCBNEW 5.1.6-c6e7f7d~86~ubuntu18.04.1) date 2020-07-10 20:36:52*
+%MOMM*%
+%LPD*%
+G01*
+G04 APERTURE LIST*
+%ADD10R,1.300000X1.300000*%
+%ADD11R,1.300000X2.000000*%
+G04 APERTURE END LIST*
+D10*
+X125266000Y-108832000D03*
+D11*
+X130766000Y-109982000D03*
+D10*
+X125266000Y-111132000D03*
+M02*
